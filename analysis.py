@@ -6,6 +6,7 @@ import math
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
+from station_analysis import analyze_stations
 
 # 以脚本所在目录定位输入与输出，避免从其他目录运行时找不到文件。
 ROOT = Path(__file__).resolve().parent
@@ -43,7 +44,7 @@ def save(im, name):
 # 绘制多条序列，自动按数据范围设置纵轴，并稀疏显示横轴标签。
 def line_chart(x, ys, labels, title, name, colors=None):
     im, d = canvas()
-    L, T, R, B = 80, 70, 1140, 540
+    L, T, R, B = 80, 105, 1140, 540
     colors = colors or ["#2563eb", "#f97316", "#111827"]
     allv = np.concatenate([np.asarray(v, dtype=float) for v in ys])
     ymin, ymax = float(np.nanmin(allv)), float(np.nanmax(allv))
@@ -106,16 +107,31 @@ def heatmap(mat, row_labels, col_labels, title, name):
 
 # 将不同会员类别的小时需求并列绘制，便于观察时段差异。
 def grouped_chart(df, title, name):
-    hours=range(24); im,d=canvas(); L,T,R,B=75,70,1140,540
-    d.text((L,20),title,fill="#111827",font=F_TITLE)
-    mx=max(df.max().max(),1)
-    for j,col in enumerate(df.columns):
-        vals=df[col].reindex(hours,fill_value=0).values
-        for i,v in enumerate(vals):
-            x=L+i*(R-L)/24+j*10
-            y=B-v/mx*(B-T)
-            d.rectangle((x,y,x+8,B),fill=["#2563eb","#f97316","#16a34a"][j%3])
-    for i in range(0,24,2): d.text((L+i*(R-L)/24-5,B+8),str(i),fill="#555",font=F_SMALL)
+    # 按类别名称绑定颜色，避免数据列顺序变化后图例与柱形错配。
+    styles = [('casual', '非会员 casual', '#2563eb'),
+              ('member', '会员 member', '#f97316')]
+    im,d = canvas(1500,780)
+    L,T,R,B = 110,180,1430,660
+    d.text((L,20),'不同会员类型的小时骑行量',fill='#111827',font=font(36))
+    d.text((L,75),'2024年1月 · 按开始小时累计（次）',fill='#555',font=font(23))
+    for j,(col,label,color) in enumerate(styles):
+        x=L+j*420
+        d.rectangle((x,126,x+28,146),fill=color)
+        d.text((x+42,119),label,fill='#333',font=font(25))
+    mx=max(df.max().max(),1)*1.08
+    for tick in range(6):
+        value=mx*tick/5; y=B-value/mx*(B-T)
+        d.line((L,y,R,y),fill='#e5e7eb',width=2)
+        d.text((L-15,y),f'{value:,.0f}',fill='#555',font=font(21),anchor='rm')
+    for j,(col,label,color) in enumerate(styles):
+        vals=df[col].reindex(range(24),fill_value=0).values
+        for i,value in enumerate(vals):
+            x=L+(i+.15)*(R-L)/24+j*20
+            y=B-value/mx*(B-T)
+            d.rectangle((x,y,x+17,B),fill=color)
+    for i in range(24):
+        d.text((L+(i+.5)*(R-L)/24,B+20),str(i),fill='#555',font=font(22),anchor='mm')
+    d.text(((L+R)/2,727),'出发小时',fill='#555',font=font(24),anchor='mm')
     save(im,name)
 
 # 使用正规方程求解岭回归；alpha 控制正则化强度。
@@ -136,7 +152,8 @@ def metric(y,p):
 
 def main():
     # 读取原始数据；utf-8-sig 同时兼容带有 BOM 的 UTF-8 文件。
-    raw=pd.read_csv(DATA,encoding="utf-8-sig")
+    raw=pd.read_csv(DATA,encoding="utf-8-sig",
+                    dtype={'start_station_id':'string','end_station_id':'string'})
     raw_rows=len(raw); raw_dupes=int(raw.duplicated(subset=["ride_id"]).sum())
     # 无法解析的时间转为缺失值，再用起止时间差重新计算骑行分钟数。
     for c in ["started_at","ended_at"]: raw[c]=pd.to_datetime(raw[c],errors="coerce")
@@ -165,13 +182,8 @@ def main():
     order=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
     heat=df.pivot_table(index="weekday",columns="hour",values="ride_id",aggfunc="count",fill_value=0).reindex(order,fill_value=0).reindex(columns=range(24),fill_value=0)
     heat.to_csv(OUT/"weekday_hour_heatmap.csv",encoding="utf-8-sig"); heatmap(heat.values,["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],range(24),"Trips by weekday and start hour","02_weekday_hour_heatmap.png")
-    # 分别汇总站点出发量与到达量，再按站点编号合并。
-    starts=df.groupby(["start_station_id","start_station_name"]).size().rename("departures").reset_index().rename(columns={"start_station_id":"station_id","start_station_name":"station_name"})
-    ends=df.groupby(["end_station_id","end_station_name"]).size().rename("arrivals").reset_index().rename(columns={"end_station_id":"station_id","end_station_name":"station_name"})
-    # 净流出为出发量减到达量；绝对净流出除以总活动量衡量相对失衡。
-    station=starts.merge(ends[["station_id","arrivals"]],on="station_id",how="outer").fillna(0); station["net_outflow"]=station.departures-station.arrivals; station["total_activity"]=station.departures+station.arrivals; station["imbalance_index"]=station.net_outflow.abs()/station.total_activity.replace(0,np.nan); station=station.sort_values("total_activity",ascending=False)
-    station.to_csv(OUT/"station_supply_demand.csv",index=False,encoding="utf-8-sig")
-    top=station.head(15).sort_values("departures"); bar_chart(top.station_name.tolist(),top.departures.tolist(),top.arrivals.tolist(),"Top 15 stations: departures vs arrivals","03_top_stations_flow.png")
+    # 图3按已知站点的流入+流出排序；另导出分日期、小时、车型的净流出和调度参考。
+    station=analyze_stations(df,OUT)
     # 出发按开始小时统计，到达按结束小时统计；全网净流量不能等同于单站库存缺口。
     dep_h=df.groupby("hour").size().rename("departures"); arr_h=df.groupby(df.ended_at.dt.hour).size().rename("arrivals"); flow=pd.concat([dep_h,arr_h],axis=1).fillna(0).reindex(range(24),fill_value=0); flow["net_outflow"]=flow.departures-flow.arrivals; flow.to_csv(OUT/"hourly_net_flow.csv",encoding="utf-8-sig"); line_chart(list(range(24)),[flow.net_outflow.values],["Net outflow"],"System net flow by hour","04_hourly_net_flow.png",["#7c3aed"])
     # 交叉统计会员与车型组合，并进一步比较会员类别的小时分布。
