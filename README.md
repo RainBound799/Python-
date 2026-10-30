@@ -7,7 +7,7 @@
 1. 将课程原始数据 `题5_共享单车骑行_202401.csv` 放到本目录。原始数据不纳入版本库，也不附在代码压缩包中。
 2. 安装依赖：`python -m pip install -r requirements.txt`。
 3. 执行分析：`python analysis.py`。结果存入 `output/`，图片存入 `output/figures/`。
-4. 执行验证：`python -m unittest -v test_station_analysis.py`。
+4. 执行验证：`python -m unittest -v test_station_analysis.py test_membership_analysis.py`。
 5. 更新报告：`python update_report.py`，得到 `output/项目报告_题目五_修订版.docx`。
 
 `analysis.py` 负责清洗、会员类型图、整体时间分布及模型；`station_analysis.py` 负责站点活动量和调度分析；`update_report.py` 基于保留在 `documents/base_report.docx` 的原报告更新文字、图表及数据表。原报告仅为复现输入，请提交新生成的修订版。
@@ -19,6 +19,20 @@
 - 新增逐小时净流出热力图，以及电动车和普通自行车的净流出对比图。报告使用0—11时、12—23时两张子图确保格内数值清晰。
 - 导出全15站的逐日、逐小时、分日类型、分车型精确计数，以及5个时间窗口的补车和回收压力与车型比例。
 - 新增活动量管理权重、工作日/周末补收车高压小时、前四站早晚窗口的车型调度参考。
+- 新增不同会员类型的车型偏好：`membership_analysis.py`生成交叉计数、组内车型占比和100%堆积图，报告第4.4节及PPT新增一页同步解释。
+
+## 会员车型偏好
+
+使用同一批235,674条有效骑行。组内占比 = 本会员类型使用某车型的骑行次数 ÷ 本会员类型全部骑行次数。每个群体内部占比合计100%，不以全网骑行量为分母。
+
+| 会员类型 | 电动车次数 | 电动车占比 | 普通自行车次数 | 普通车占比 | 合计 |
+|---|---:|---:|---:|---:|---:|
+| 非会员 casual | 34,083 | 55.92% | 26,865 | 44.08% | 60,948 |
+| 会员 member | 86,071 | 49.26% | 88,655 | 50.74% | 174,726 |
+
+非会员电动车组内占比比会员高6.66个百分点。会员两类车型使用较均衡，普通车略多。统计单位是骑行次数，不是独立用户人数；价格、车辆可用性和电量可能影响选择，不能认定个人主观偏好或因果关系，也不能直接替代单站补收车型比例。
+
+`user_vehicle_preference.csv`保留原始次数、组内总数`membership_total`及0—1范围的组内占比`within_membership_share`。未发生的组合补零，无样本群体的占比留空；缺失类别显式记为`unknown`以保留分母。`user_vehicle_profile.csv`继续提供原始交叉次数，图像为`figures/09_membership_vehicle_preference.png`。
 
 ## 统计口径
 

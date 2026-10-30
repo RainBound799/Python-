@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from station_analysis import analyze_stations
+from membership_analysis import membership_preference, preference_chart
 
 # 以脚本所在目录定位输入与输出，避免从其他目录运行时找不到文件。
 ROOT = Path(__file__).resolve().parent
@@ -187,7 +188,10 @@ def main():
     # 出发按开始小时统计，到达按结束小时统计；全网净流量不能等同于单站库存缺口。
     dep_h=df.groupby("hour").size().rename("departures"); arr_h=df.groupby(df.ended_at.dt.hour).size().rename("arrivals"); flow=pd.concat([dep_h,arr_h],axis=1).fillna(0).reindex(range(24),fill_value=0); flow["net_outflow"]=flow.departures-flow.arrivals; flow.to_csv(OUT/"hourly_net_flow.csv",encoding="utf-8-sig"); line_chart(list(range(24)),[flow.net_outflow.values],["Net outflow"],"System net flow by hour","04_hourly_net_flow.png",["#7c3aed"])
     # 交叉统计会员与车型组合，并进一步比较会员类别的小时分布。
-    profile=df.groupby(["member_casual","rideable_type"]).size().rename("rides").reset_index(); profile.to_csv(OUT/"user_vehicle_profile.csv",index=False,encoding="utf-8-sig")
+    preference = membership_preference(df)
+    preference[['member_casual', 'rideable_type', 'rides']].to_csv(OUT/'user_vehicle_profile.csv', index=False, encoding='utf-8-sig')
+    preference.to_csv(OUT/'user_vehicle_preference.csv', index=False, encoding='utf-8-sig')
+    preference_chart(preference, FIG/'09_membership_vehicle_preference.png', font)
     memb=df.pivot_table(index="hour",columns="member_casual",values="ride_id",aggfunc="count",fill_value=0).reindex(range(24),fill_value=0); grouped_chart(memb,"Hourly demand by membership type","05_membership_hourly.png")
     # 聚合为连续小时序列，按时间先后划分前 80% 训练、后 20% 测试，避免随机切分。
     ts=df.groupby(df.started_at.dt.floor("h")).size().rename("demand").asfreq("h",fill_value=0).to_frame(); ts["hour"]=ts.index.hour; ts["weekday_num"]=ts.index.dayofweek; ts["is_weekend"]=(ts.weekday_num>=5).astype(int); ts["day"]=ts.index.day; ts["trend"]=np.arange(len(ts)); n=len(ts); split=int(n*.8); train,test=ts.iloc[:split],ts.iloc[split:]
@@ -209,6 +213,10 @@ def main():
     top_out=station.sort_values("net_outflow",ascending=False).head(5)[["station_name","departures","arrivals","net_outflow"]]; top_in=station.sort_values("net_outflow").head(5)[["station_name","departures","arrivals","net_outflow"]]
     # 集中导出报告所需指标，确保图表、统计表与文字引用来源一致。
     summary={"cleaning":cleaning,"peak_hour":int(hourly.idxmax()),"peak_hour_trips":int(hourly.max()),"peak_weekday_hour":{"weekday":str(heat.stack().idxmax()[0]),"hour":int(heat.stack().idxmax()[1]),"trips":int(heat.stack().max())},"member_share":{str(k):float(v) for k,v in df.member_casual.value_counts(normalize=True).items()},"vehicle_share":{str(k):float(v) for k,v in df.rideable_type.value_counts(normalize=True).items()},"top_outflow_stations":top_out.to_dict(orient="records"),"top_inflow_stations":top_in.to_dict(orient="records"),"model_metrics":metrics,"best_model":min(metrics,key=lambda x:x["RMSE"])["model"]}
+    summary['membership_vehicle_preference'] = json.loads(preference.to_json(orient='records'))
+    electric_share = preference.loc[preference.rideable_type.eq('electric_bike')].set_index('member_casual').within_membership_share
+    difference = float((electric_share['casual'] - electric_share['member']) * 100)
+    summary['casual_minus_member_electric_percentage_points'] = difference if math.isfinite(difference) else None
     (OUT/"analysis_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8"); print(json.dumps(summary,ensure_ascii=False,indent=2))
 # 仅在直接运行脚本时执行完整分析，作为模块导入时不自动运行主流程。
 if __name__=="__main__": main()

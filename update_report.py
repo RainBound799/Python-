@@ -1,4 +1,4 @@
-"""保留现有报告样式，替换图3/图5，补充站点分时和分车型分析。
+"""保留现有报告样式，补充会员车型偏好、站点分时和分车型分析。
 
 先运行 analysis.py，再运行此脚本；所有新增表格数值直接读取分析结果。
 """
@@ -24,6 +24,7 @@ def main():
     hourly = pd.read_csv(OUT/'top_station_hourly_flow.csv', dtype={'station_id':str})
     windows = pd.read_csv(OUT/'top_station_dispatch_windows.csv', dtype={'station_id':str})
     summary = json.loads((OUT/'station_analysis_summary.json').read_text(encoding='utf-8'))
+    preference = pd.read_csv(OUT/'user_vehicle_preference.csv')
 
     def replace(index, text):
         base[index].text = text
@@ -44,7 +45,7 @@ def main():
             '图5明确标注蓝色为非会员 casual、橙色为会员 member。全网车型使用比例只描述骑行构成，'
             '具体站点应按时段、按车型的净流出计算补车或回收比例，不能直接沿用全网的51∶49。')
     replace(39, '图 5　不同会员类型的小时需求　蓝色为非会员　橙色为会员')
-    replace(46, '图 8　时间顺序测试集上的小时需求预测')
+    replace(46, '图 9　时间顺序测试集上的小时需求预测')
     replace(48, '全月17时骑行量最高，但单站调度方向并不一致。Union Station 工作日早间净流入、晚间净流出，'
             'New Hampshire Ave & T St NW 则主要呈现相反方向。活动量反映管理工作量，净流出反映车辆流动压力；'
             '按车型细分后，月度接近平衡的站点也可能需要定时交换车型。')
@@ -60,11 +61,11 @@ def main():
     replace(57, 'A负责统筹与数据清洗复核，B负责时空分析与图表复核，C负责模型、调度建议和报告复核。'
             '历史提交中的A、B、C为模块署名标记；个人实际承担情况应由成员核实，不能仅凭署名替代独立贡献证明。')
     replace(60, '本地 Git 仓库路径：'+str(ROOT)+'。运行 analysis.py 生成分析结果，运行 update_report.py '
-            '更新报告。output/ 目录包含8类图表（小时热力图另有两张拆分子图），以及站点日期、小时、日类型、车型和调度窗口统计表。'
+            '更新报告。output/ 目录包含9类图表（小时热力图另有两张拆分子图），以及会员车型组内占比、站点日期、小时、日类型、车型和调度窗口统计表。'
             '原始CSV仅保留在本地，不随代码提交；配套压缩包另附本次统计结果。')
     replace(63, 'Python 3.12；分析依赖 pandas、numpy、Pillow，报告更新另需 python-docx。'
-            '输入文件名为题5_共享单车骑行_202401.csv。运行 python -m unittest -v test_station_analysis.py '
-            '可检查跨小时、跨月、单端缺失及零计数等情形。')
+            '输入文件名为题5_共享单车骑行_202401.csv。运行 python -m unittest -v test_station_analysis.py test_membership_analysis.py '
+            '可检查跨小时、跨月、单端缺失、零计数及会员组内占比分母等情形。')
 
     # 图片段落替换后，重新绑定图片说明，保持Word中的图像可访问性。
     def picture(p, filename, alt, width=6.25):
@@ -147,17 +148,43 @@ def main():
          '图4仍为有效骑行样本的全网按时钟小时流量，用于总体描述；具体调度采用下文按站点的事件统计。')
 
     anchor = base[40]
-    para(anchor, '4.4 高活动站点分时净流出与补收车时段', 'Heading 2')
-    para(anchor, '对同一批前15站分别统计实际出发小时与到达小时，图6给出每个小时的月累计净流出整数。'
+    para(anchor, '4.4 不同会员类型的车型偏好', 'Heading 2')
+    para(anchor, '使用与前文相同的235,674条有效骑行，按会员类型与车型交叉统计。'
+         '组内车型占比 = 该会员类型使用该车型的骑行次数 ÷ 该会员类型全部骑行次数。'
+         '每个会员群体内部的两种车型占比合计100%，避免会员总体骑行量较多造成误判。'
+         '这里的“偏好”指已完成骑行中观察到的车型使用倾向，统计单位是骑行次数，而非独立用户人数。')
+    figure(anchor, '09_membership_vehicle_preference.png', '图 6　不同会员类型的车型组内占比与骑行次数')
+    para(anchor, '表 2　会员类型与车型交叉统计')
+    rows=[]
+    for member, label in [('casual', '非会员 casual'), ('member', '会员 member')]:
+        group = preference.loc[preference.member_casual.eq(member)].set_index('rideable_type')
+        e, c = group.loc['electric_bike'], group.loc['classic_bike']
+        rows.append([label, f'{int(e.rides):,}', f'{e.within_membership_share:.2%}',
+                     f'{int(c.rides):,}', f'{c.within_membership_share:.2%}', f'{int(e.membership_total):,}'])
+    table(anchor, ['会员类型','电动车\n次数','电动车\n组内占比','普通车\n次数','普通车\n组内占比','组内总次数'],
+          rows, [1.25, 1.0, 1.0, 1.0, 1.0, 1.0])
+    shares = preference.loc[preference.rideable_type.eq('electric_bike')].set_index('member_casual').within_membership_share
+    gap = (shares['casual'] - shares['member']) * 100
+    para(anchor, f'非会员电动车占比为{shares["casual"]:.2%}，会员为{shares["member"]:.2%}，'
+         f'非会员高出{gap:.2f}个百分点。会员普通自行车占比为{1-shares["member"]:.2%}，两种车型接近，普通车略多。'
+         '因此可描述为非会员更常使用电动车，而会员车型使用较均衡。虽然会员电动车次数多于非会员，'
+         '这是两个群体规模不同的结果，不能用绝对次数替代组内占比来比较使用倾向。')
+    para(anchor, '该结果可作为了解用户构成和车型需求的参考。数据缺少独立用户标识、价格、现场可用车辆和电量，'
+         '同一用户可能贡献多次骑行，因此不能据此认定个人主观偏好或会员身份的因果影响。'
+         '站点实际补收车型比例仍应结合下文的分站点、分时段净流出和实时库存决定。'
+         '精确次数、组内分母及未四舍五入占比保存在user_vehicle_preference.csv。')
+
+    para(anchor, '4.5 高活动站点分时净流出与补收车时段', 'Heading 2')
+    para(anchor, '对同一批前15站分别统计实际出发小时与到达小时，图7给出每个小时的月累计净流出整数。'
          '蓝色表示净流出为正、车辆被骑走更多；橙色表示净流出为负、车辆流入更多。'
          '例如Union Station在7时净流出为−129次，在18时为+104次；New Hampshire Ave & T St NW在7时为+184次，'
          '17时为−143次，显示不同站点的调度方向相反。')
-    figure(anchor, '07a_station_hourly_00_11.png', '图 6a　高活动站点0至11时净流出　单元格为月累计次数')
-    figure(anchor, '07b_station_hourly_12_23.png', '图 6b　高活动站点12至23时净流出　单元格为月累计次数')
+    figure(anchor, '07a_station_hourly_00_11.png', '图 7a　高活动站点0至11时净流出　单元格为月累计次数')
+    figure(anchor, '07b_station_hourly_12_23.png', '图 7b　高活动站点12至23时净流出　单元格为月累计次数')
     para(anchor, '进一步按日类型划分：周一至周五计23天，周末计8天；这里的“工作日”为日历分类，未另做节假日调整。'
          '零骑行日期与小时同样进入分母。下表列出各站净流出日均值最大与最小的小时，正值提示在该小时前检查补车，'
          '负值提示该小时内关注车位并视库存回收；每个小时均指[该时,下一时)。')
-    para(anchor, '表 2　前15站工作日与周末的小时补收车压力')
+    para(anchor, '表 3　前15站工作日与周末的小时补收车压力')
     def extremes(station_id, kind):
         g=hourly.loc[hourly.station_id.eq(station_id)&hourly.day_type.eq(kind)].sort_values('hour')
         hi=g.loc[g.net_outflow_per_day.idxmax()]; lo=g.loc[g.net_outflow_per_day.idxmin()]
@@ -167,19 +194,19 @@ def main():
         rows.append([f'{r.rank:02d} / {r.station_id}',*extremes(r.station_id,'weekday'),*extremes(r.station_id,'weekend')])
     table(anchor,['序号 / 编号','工作日\n最大净流出','工作日\n最小净流出','周末\n最大净流出','周末\n最小净流出'],
           rows,[1.05,1.3,1.3,1.3,1.2])
-    para(anchor, '表2单位为次/日（对应所示小时）；月累计量、日均值和逐日实际量分别保存在配套CSV中。'
+    para(anchor, '表3单位为次/日（对应所示小时）；月累计量、日均值和逐日实际量分别保存在配套CSV中。'
          '例如日均+5表示历史上该时段每天平均净骑走5次，不能据此保证每天补5辆即可满足需求。'
          '骑行记录不含调度搬运、站点容量、初始库存和未成功借车需求，应结合实时库存与逐日波动判断实际数量。')
 
-    para(anchor, '4.5 分车型净流出与调度比例', 'Heading 2')
+    para(anchor, '4.6 分车型净流出与调度比例', 'Heading 2')
     para(anchor, '保持相同站点和时间口径，将端点事件分别归入电动车 electric_bike 与普通自行车 classic_bike。'
-         '图7用于比较月度累计方向；例如Adams Mill & Columbia Rd NW电动车净流出+21次、普通自行车+286次，'
+         '图8用于比较月度累计方向；例如Adams Mill & Columbia Rd NW电动车净流出+21次、普通自行车+286次，'
          '普通车的累计补充压力更明显。M St & Delaware Ave NE电动车+23次、普通车−10次，应区分电动车补充和普通车回收。')
-    figure(anchor, '08_station_vehicle_netflow.png', '图 7　高活动站点的电动车与普通自行车净流出对比')
+    figure(anchor, '08_station_vehicle_netflow.png', '图 8　高活动站点的电动车与普通自行车净流出对比')
     para(anchor, '单日调度使用分日类型、分窗口的净流出。设某车型的窗口日均净流出为N，补车压力取max(N,0)，'
          '回收压力取max(−N,0)。电动车补车占比为电动车正净流出除以两车型正净流出之和；回收占比按负净流出的绝对值另算。'
          '分母为零时不定义比例。该比例是历史窗口净变化的参考，不是已验证的最优调度比例；窗口内有反转时还须查看逐小时数据。')
-    para(anchor, '表 3　前四站工作日早晚窗口的车型调度参考')
+    para(anchor, '表 4　前四站工作日早晚窗口的车型调度参考')
     rows=[]
     for r in top.head(4).itertuples():
         for label in ['07–10','16–20']:
@@ -197,21 +224,22 @@ def main():
                          f'{w.electric_net_per_day:+.2f}',f'{w.classic_net_per_day:+.2f}',action,share])
     table(anchor,['序号 / 编号','时段','电动车\n净流出','普通车\n净流出','合计方向\n次/日','方向内比例\n电动车 / 普通车'],
           rows,[.95,.65,.8,.8,1.25,1.7])
-    para(anchor, '表3以23个工作日为分母，07—10时包含07、08、09三个小时，16—20时包含16、17、18、19四个小时。'
+    para(anchor, '表4以23个工作日为分母，07—10时包含07、08、09三个小时，16—20时包含16、17、18、19四个小时。'
          'Union Station早间回收压力日均11.74次、晚间补车压力日均10.22次，电动车占比分别为17.4%和13.6%。'
          '这些数值刻画历史净变化；执行前应检查剩余车位、可用车辆和电动车电量。全15站及周末的5个时间窗口明细均已导出。')
 
     anchor = base[62]
-    para(anchor, '附录 C 新增站点统计数据说明', 'Heading 2')
+    para(anchor, '附录 C 新增统计数据说明', 'Heading 2')
     table(anchor,['数据文件','内容与单位'],[
         ['top_station_activity.csv','前15站名单、流入+流出次数、日均活动、管理权重和活动峰值小时'],
         ['top_station_hourly_flow.csv','全月/工作日/周末 × 站点 × 小时：流出、流入、净流出及日均值'],
         ['top_station_daily_flow.csv','站点逐日期的实际流量，包含零骑行日期'],
-        ['top_station_vehicle_flow.csv','站点 × 车型的月累计流量，支持核对图7'],
+        ['top_station_vehicle_flow.csv','站点 × 车型的月累计流量，支持核对图8'],
         ['top_station_hourly_vehicle.csv','日类型 × 站点 × 小时 × 车型：累计次数与日均值'],
         ['top_station_date_hour_vehicle.csv','15站 × 31天 × 24小时 × 2车型，共22,320行精确计数'],
         ['top_station_dispatch_windows.csv','00—07、07—10、10—16、16—20、20—24时：车型净流出和分别补/收的比例'],
-        ['station_analysis_summary.json','统计时段、已知端点数量、跨月排除数与各类天数']
+        ['station_analysis_summary.json','统计时段、已知端点数量、跨月排除数与各类天数'],
+        ['user_vehicle_preference.csv','会员类型 × 车型的骑行次数、会员组内总次数及组内车型占比']
     ],[2.65,3.5])
     para(anchor, 'CSV采用UTF-8 BOM编码。departures为流出次数，arrivals为流入次数，total_activity为二者之和，'
          'net_outflow为二者之差；后缀_per_day表示除以对应日类型天数后的日均值。'
