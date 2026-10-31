@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 # 检查原始数据和主脚本是否齐全；不修改输入数据。
 required = [ROOT / name for name in ["题5_共享单车骑行_202401.csv", "analysis.py",
-                                    "station_analysis.py", "membership_analysis.py"]]
+                                    "station_analysis.py", "membership_analysis.py", "excel_export.py"]]
 missing = [str(p.name) for p in required if not p.exists()]
 if missing:
     raise FileNotFoundError("缺少输入文件: " + ", ".join(missing))

@@ -8,6 +8,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from station_analysis import analyze_stations
 from membership_analysis import membership_preference, preference_chart
+from excel_export import export_excel
 
 # 以脚本所在目录定位输入与输出，避免从其他目录运行时找不到文件。
 ROOT = Path(__file__).resolve().parent
@@ -194,6 +195,7 @@ def main():
     preference.to_csv(OUT/'user_vehicle_preference.csv', index=False, encoding='utf-8-sig')
     preference_chart(preference, FIG/'09_membership_vehicle_preference.png', font)
     memb=df.pivot_table(index="hour",columns="member_casual",values="ride_id",aggfunc="count",fill_value=0).reindex(range(24),fill_value=0); grouped_chart(memb,"Hourly demand by membership type","05_membership_hourly.png")
+    memb.to_csv(OUT/'membership_hourly.csv', encoding='utf-8-sig')
     # 聚合为连续小时序列，按时间先后划分前 80% 训练、后 20% 测试，避免随机切分。
     ts=df.groupby(df.started_at.dt.floor("h")).size().rename("demand").asfreq("h",fill_value=0).to_frame(); ts["hour"]=ts.index.hour; ts["weekday_num"]=ts.index.dayofweek; ts["is_weekend"]=(ts.weekday_num>=5).astype(int); ts["day"]=ts.index.day; ts["trend"]=np.arange(len(ts)); n=len(ts); split=int(n*.8); train,test=ts.iloc[:split],ts.iloc[split:]
     # 构造 34 列特征：24 列小时独热编码、7 列星期独热编码和 3 列数值特征。
@@ -219,6 +221,8 @@ def main():
     difference = float((electric_share['casual'] - electric_share['member']) * 100)
     summary['casual_minus_member_electric_percentage_points'] = difference if math.isfinite(difference) else None
     (OUT/"analysis_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8"); print(json.dumps(summary,ensure_ascii=False,indent=2))
+    # CSV不能嵌入图片，另生成图表与完整数据同页展示的Excel汇总。
+    print('Excel图表汇总：', export_excel(OUT))
 # 仅在直接运行脚本时执行完整分析，作为模块导入时不自动运行主流程。
 if __name__=="__main__": main()
 

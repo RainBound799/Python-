@@ -4,10 +4,10 @@
 
 ## 运行
 
-1. 将课程原始数据 `题5_共享单车骑行_202401.csv` 放到本目录。原始数据不纳入版本库，也不附在代码压缩包中。
+1. 将课程原始数据 `题5_共享单车骑行_202401.csv` 放到本目录。原始数据不纳入版本库；“代码与原始数据”测试包已包含该文件。
 2. 安装依赖：`python -m pip install -r requirements.txt`。
 3. 执行分析：`python analysis.py`。自动新建 `output/` 保存统计表（CSV）和摘要（JSON），图表（PNG）集中保存到 `output/figures/`。
-4. 执行验证：`python -m unittest -v test_station_analysis.py test_membership_analysis.py`。
+4. 优先打开 `output/分析结果汇总.xlsx`，按目录查看统计表和对应图表。执行验证：`python -m unittest -v test_station_analysis.py test_membership_analysis.py test_excel_export.py`。
 5. 如需生成报告，执行 `python update_report.py`，得到 `output/项目报告_题目五_修订版.docx`。请保留完整代码包中的 `documents/base_report.docx`，它是报告复现输入；仅含代码和原始数据的测试包不包含报告生成程序及模板。
 
 输入和输出路径以 `analysis.py` 所在文件夹为基准，而非终端当前工作目录。从其他位置启动脚本时，仍读取代码旁的原始数据，结果统一写入代码旁的 `output/`。再次运行会覆盖其中的同名结果，不修改原始数据。旧版留在代码根目录的结果不会再被读取或更新；建议将新测试包解压到一个空文件夹，以便从头验证。
@@ -17,7 +17,7 @@
 ```text
 python -m pip install -r requirements.txt
 python analysis.py
-python -m unittest -v test_station_analysis.py test_membership_analysis.py
+python -m unittest -v test_station_analysis.py test_membership_analysis.py test_excel_export.py
 python update_report.py
 ```
 
@@ -26,6 +26,9 @@ python update_report.py
 `analysis.py` 负责清洗、会员类型图、整体时间分布及模型；`station_analysis.py` 负责站点活动量和调度分析；`update_report.py` 基于保留在 `documents/base_report.docx` 的原报告更新文字、图表及数据表。原报告仅为复现输入，请提交新生成的修订版。
 
 ## 本次修订
+
+- 新增Excel汇总：`excel_export.py`使用openpyxl，把17份CSV完整导入17张中文主题工作表，9个有对应图表的主题在表格上方嵌入PNG。含目录跳转、筛选、百分比和日期格式，原字段名保留在表头批注中。
+- 图片是本次运行的静态结果，不随单元格编辑变化；更新需重跑分析。无对应图的明细保留完整数据，不截取或伪配图。新增`membership_hourly.csv`供会员小时图核对。
 
 - 图3改为前15个已知站点的流入与流出总量，标出具体数值；未知站点不参与排名。
 - 图5的蓝色固定代表非会员 `casual`，橙色固定代表会员 `member`，补全中文图例和坐标说明。
