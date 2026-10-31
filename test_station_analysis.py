@@ -44,7 +44,7 @@ class GeneratedOutputTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root = Path(__file__).resolve().parent
-        cls.out = cls.root
+        cls.out = cls.root/'output'
         if not (cls.out/'top_station_activity.csv').exists():
             raise unittest.SkipTest('先运行 analysis.py 生成结果，再核对全量数据')
 

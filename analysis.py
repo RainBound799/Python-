@@ -12,9 +12,9 @@ from membership_analysis import membership_preference, preference_chart
 # 以脚本所在目录定位输入与输出，避免从其他目录运行时找不到文件。
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "题5_共享单车骑行_202401.csv"
-# 所有结果直接保存到代码所在文件夹；从其他工作目录启动时也保持一致。
-OUT = ROOT
-FIG = ROOT
+# 在代码旁自动创建结果子文件夹；从其他工作目录启动时也保持一致。
+OUT = ROOT / 'output'
+FIG = OUT / 'figures'
 
 # 优先加载支持中文的本地字体；不可用时回退到默认字体。
 def font(size=22, bold=False):
@@ -37,7 +37,7 @@ def canvas(w=1200, h=620):
     im = Image.new("RGB", (w, h), "white")
     return im, ImageDraw.Draw(im)
 
-# 图表与统计表保存在代码旁边，便于复制文件后直接复现。
+# 图表统一保存在 output/figures，统计表和摘要保存在 output。
 def save(im, name):
     im.save(FIG / name, dpi=(180, 180))
 
@@ -151,6 +151,8 @@ def metric(y,p):
     return {"MAE":float(np.mean(np.abs(e))),"RMSE":float(np.sqrt(np.mean(e**2))),"R2":float(1-np.sum(e**2)/np.sum((np.asarray(y)-np.mean(y))**2))}
 
 def main():
+    # 首次运行自动创建目录，重复运行复用目录并更新同名结果。
+    FIG.mkdir(parents=True, exist_ok=True)
     # 读取原始数据；utf-8-sig 同时兼容带有 BOM 的 UTF-8 文件。
     raw=pd.read_csv(DATA,encoding="utf-8-sig",
                     dtype={'start_station_id':'string','end_station_id':'string'})

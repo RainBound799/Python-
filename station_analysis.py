@@ -141,8 +141,8 @@ def analyze_stations(df, out):
     audit['top15_activity_total'] = int(top.total_activity.sum())
     audit['total_known_stations'] = len(station)
     (out/'station_analysis_summary.json').write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding='utf-8')
-    # 与主程序保持一致，图表直接放在统计结果所在目录。
-    draw_station_charts(top, hourly, by_type, out)
+    # 与主程序保持一致，图表集中放在结果目录的 figures 子文件夹。
+    draw_station_charts(top, hourly, by_type, out/'figures')
     return station
 
 

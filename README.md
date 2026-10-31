@@ -6,11 +6,11 @@
 
 1. 将课程原始数据 `题5_共享单车骑行_202401.csv` 放到本目录。原始数据不纳入版本库，也不附在代码压缩包中。
 2. 安装依赖：`python -m pip install -r requirements.txt`。
-3. 执行分析：`python analysis.py`。统计表（CSV）、摘要（JSON）和图表（PNG）全部直接生成在代码所在文件夹。
+3. 执行分析：`python analysis.py`。自动新建 `output/` 保存统计表（CSV）和摘要（JSON），图表（PNG）集中保存到 `output/figures/`。
 4. 执行验证：`python -m unittest -v test_station_analysis.py test_membership_analysis.py`。
-5. 如需生成报告，执行 `python update_report.py`，在同一文件夹得到 `项目报告_题目五_修订版.docx`。请保留压缩包中的 `documents/base_report.docx`，它是报告复现输入。
+5. 如需生成报告，执行 `python update_report.py`，得到 `output/项目报告_题目五_修订版.docx`。请保留完整代码包中的 `documents/base_report.docx`，它是报告复现输入；仅含代码和原始数据的测试包不包含报告生成程序及模板。
 
-这里的“当前文件夹”指 `analysis.py` 所在文件夹，而非终端当前工作目录。因此从其他位置启动脚本时，仍会读取代码旁的原始数据，并把结果写在代码旁。再次运行会覆盖同名结果，不修改原始数据；旧版 `output/` 目录不会再被读取或更新。
+输入和输出路径以 `analysis.py` 所在文件夹为基准，而非终端当前工作目录。从其他位置启动脚本时，仍读取代码旁的原始数据，结果统一写入代码旁的 `output/`。再次运行会覆盖其中的同名结果，不修改原始数据。旧版留在代码根目录的结果不会再被读取或更新；建议将新测试包解压到一个空文件夹，以便从头验证。
 
 解压完整代码包，将原始CSV放到 `analysis.py` 旁边，在此文件夹打开终端后运行：
 
@@ -45,7 +45,7 @@ python update_report.py
 
 非会员电动车组内占比比会员高6.66个百分点。会员两类车型使用较均衡，普通车略多。统计单位是骑行次数，不是独立用户人数；价格、车辆可用性和电量可能影响选择，不能认定个人主观偏好或因果关系，也不能直接替代单站补收车型比例。
 
-`user_vehicle_preference.csv`保留原始次数、组内总数`membership_total`及0—1范围的组内占比`within_membership_share`。未发生的组合补零，无样本群体的占比留空；缺失类别显式记为`unknown`以保留分母。`user_vehicle_profile.csv`继续提供原始交叉次数，图像为同目录的`09_membership_vehicle_preference.png`。
+`output/user_vehicle_preference.csv`保留原始次数、组内总数`membership_total`及0—1范围的组内占比`within_membership_share`。未发生的组合补零，无样本群体的占比留空；缺失类别显式记为`unknown`以保留分母。`output/user_vehicle_profile.csv`继续提供原始交叉次数，图像为`output/figures/09_membership_vehicle_preference.png`。
 
 ## 统计口径
 
@@ -74,4 +74,4 @@ python update_report.py
 
 所有CSV采用UTF-8 BOM编码。`departures`为流出，`arrivals`为流入，`total_activity`为两者之和，`net_outflow`为两者之差，`*_per_day`为对应日类型的日均值。比例列取值0—1，无需该方向调度时留空。
 
-压缩包附带本次运行结果；重新运行将重新生成。Git只跟踪代码、依赖说明和报告复现输入，原始数据、根目录的生成结果及旧版`output/`不跟踪。本次修订提交采用中文说明。
+测试包仅包含分析代码、原始数据、依赖清单和使用说明，不预放生成结果。运行后可查看 `output/`。Git只跟踪代码、依赖说明和报告复现输入，原始数据、`output/`及旧版根目录生成结果不跟踪。提交采用中文说明。
