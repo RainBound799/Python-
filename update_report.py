@@ -13,8 +13,8 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT/'output'
-FIG = OUT/'figures'
+OUT = ROOT
+FIG = ROOT
 
 
 def main():
@@ -60,8 +60,8 @@ def main():
             '月累计净流出不能直接作为某一天的调度量；还应查看逐日记录及窗口内部的小时变化，避免平均值掩盖突发压力。')
     replace(57, 'A负责统筹与数据清洗复核，B负责时空分析与图表复核，C负责模型、调度建议和报告复核。'
             '历史提交中的A、B、C为模块署名标记；个人实际承担情况应由成员核实，不能仅凭署名替代独立贡献证明。')
-    replace(60, '本地 Git 仓库路径：'+str(ROOT)+'。运行 analysis.py 生成分析结果，运行 update_report.py '
-            '更新报告。output/ 目录包含9类图表（小时热力图另有两张拆分子图），以及会员车型组内占比、站点日期、小时、日类型、车型和调度窗口统计表。'
+    replace(60, '将完整代码包解压，并将原始CSV放到analysis.py所在文件夹。运行 analysis.py 生成分析结果，运行 update_report.py '
+            '更新报告。统计表、JSON摘要、PNG图表和本报告均直接保存到代码所在文件夹，其中包含9类图表（小时热力图另有两张拆分子图），以及会员车型组内占比、站点日期、小时、日类型、车型和调度窗口统计表。'
             '原始CSV仅保留在本地，不随代码提交；配套压缩包另附本次统计结果。')
     replace(63, 'Python 3.12；分析依赖 pandas、numpy、Pillow，报告更新另需 python-docx。'
             '输入文件名为题5_共享单车骑行_202401.csv。运行 python -m unittest -v test_station_analysis.py test_membership_analysis.py '

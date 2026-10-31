@@ -12,10 +12,9 @@ from membership_analysis import membership_preference, preference_chart
 # 以脚本所在目录定位输入与输出，避免从其他目录运行时找不到文件。
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "题5_共享单车骑行_202401.csv"
-OUT = ROOT / "output"
-FIG = OUT / "figures"
-OUT.mkdir(exist_ok=True)
-FIG.mkdir(exist_ok=True)
+# 所有结果直接保存到代码所在文件夹；从其他工作目录启动时也保持一致。
+OUT = ROOT
+FIG = ROOT
 
 # 优先加载支持中文的本地字体；不可用时回退到默认字体。
 def font(size=22, bold=False):
@@ -38,7 +37,7 @@ def canvas(w=1200, h=620):
     im = Image.new("RGB", (w, h), "white")
     return im, ImageDraw.Draw(im)
 
-# 统一将图表保存到 figures 子目录，便于报告引用。
+# 图表与统计表保存在代码旁边，便于复制文件后直接复现。
 def save(im, name):
     im.save(FIG / name, dpi=(180, 180))
 
