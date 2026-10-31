@@ -2,6 +2,8 @@
 from pathlib import Path
 import hashlib
 import unittest
+import zipfile
+import xml.etree.ElementTree as ET
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.cell import range_boundaries
@@ -57,6 +59,43 @@ class ExcelExportTests(unittest.TestCase):
         self.assertEqual(len(hourly), 24)
         pd.testing.assert_series_equal(hourly.sum(axis=1), overall.rides, check_names=False)
         self.assertEqual(hourly.sum().to_dict(), profile.groupby('member_casual').rides.sum().to_dict())
+
+    def test_navigation_is_internal_and_targets_exist(self):
+        """核对保存后的链接目标，并防止页内跳转再次变成外部关系。"""
+        path = self.out/'分析结果汇总.xlsx'
+        book = load_workbook(path)
+        try:
+            for number, (title, _, figure, _) in enumerate(SHEETS, 11):
+                sheet = book[title]
+                links = [(book['结果目录'].cell(number, 1), title, 'A1'),
+                         (sheet['A5'], '结果目录', 'A1')]
+                if figure:
+                    _, header, _, _ = range_boundaries(sheet.auto_filter.ref)
+                    self.assertIsNotNone(sheet.cell(header, 1).value)
+                    links.append((sheet['D5'], title, f'A{header}'))
+                for cell, destination, address in links:
+                    with self.subTest(sheet=cell.parent.title, cell=cell.coordinate):
+                        self.assertIn(destination, book.sheetnames)
+                        link = cell.hyperlink
+                        self.assertIsNotNone(link)
+                        self.assertEqual(link.location, f"'{destination}'!{address}")
+                        self.assertIsNone(link.target)
+                        self.assertIsNone(link.id)
+            # 直接检查交付文件的XML，确认没有外部超链接关系。
+            with zipfile.ZipFile(path) as archive:
+                count = 0
+                for name in archive.namelist():
+                    if name.startswith('xl/worksheets/sheet') and name.endswith('.xml'):
+                        for link in ET.fromstring(archive.read(name)).findall('.//{*}hyperlink'):
+                            self.assertIn('location', link.attrib)
+                            self.assertNotIn('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id', link.attrib)
+                            count += 1
+                    if name.endswith('.rels'):
+                        for relation in ET.fromstring(archive.read(name)):
+                            self.assertFalse(relation.get('Type', '').endswith('/hyperlink'))
+                self.assertEqual(count, 2*len(SHEETS)+sum(bool(item[2]) for item in SHEETS))
+        finally:
+            book.close()
 
 
 if __name__ == '__main__':

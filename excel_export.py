@@ -7,6 +7,8 @@ from openpyxl.comments import Comment
 from openpyxl.drawing.image import Image
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import quote_sheetname
+from openpyxl.worksheet.hyperlink import Hyperlink
 
 # 明确指定数据和图表的对应关系，避免仅按文件序号误配或包含过期文件。
 SHEETS = [
@@ -57,6 +59,15 @@ LABELS = {
 NAVY = '243F54'
 
 
+def set_internal_link(cell, sheet_name, address):
+    """使用工作簿内部位置，避免将页内跳转误写成外部文件链接。"""
+    cell.hyperlink = Hyperlink(
+        ref=cell.coordinate,
+        location=f'{quote_sheetname(sheet_name)}!{address}',
+    )
+    cell.style = 'Hyperlink'
+
+
 def export_excel(out):
     """输出一个含全部统计表和9幅对应图表的工作簿，PNG为静态图片。"""
     out = Path(out)
@@ -103,8 +114,7 @@ def export_excel(out):
         sheet['A4'] = f'来源：{csv_name}。表头批注保留原始字段名。'
         sheet['A4'].font = Font(name='微软雅黑', size=10, color='526576')
         sheet['A5'] = '返回结果目录'
-        sheet['A5'].hyperlink = "#'结果目录'!A1"
-        sheet['A5'].style = 'Hyperlink'
+        set_internal_link(sheet['A5'], '结果目录', 'A1')
         header = 7
         if figure:
             picture = Image(out/'figures'/figure)
@@ -117,8 +127,7 @@ def export_excel(out):
                 sheet.row_dimensions[row].height = 18
             header = 7+rows+2
             sheet['D5'] = '跳转到数据表'
-            sheet['D5'].hyperlink = f"#'{title}'!A{header}"
-            sheet['D5'].style = 'Hyperlink'
+            set_internal_link(sheet['D5'], title, f'A{header}')
         else:
             sheet.freeze_panes = 'B8'
         for col, field in enumerate(frame.columns, 1):
@@ -159,8 +168,7 @@ def export_excel(out):
         sheet.auto_filter.ref = f'A{header}:{get_column_letter(len(frame.columns))}{last}'
         sheet.print_title_rows = f'{header}:{header}'
         row = sheet_number+10
-        index.cell(row, 1, title).hyperlink = f"#'{title}'!A1"
-        index.cell(row, 1).style = 'Hyperlink'
+        set_internal_link(index.cell(row, 1, title), title, 'A1')
         index.cell(row, 2, csv_name)
         index.cell(row, 3, len(frame))
         index.cell(row, 4, '已嵌入' if figure else '无对应图表')
